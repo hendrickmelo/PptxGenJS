@@ -1261,11 +1261,19 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 		let reqsClosingFontSize = false
 
 		// A: Start paragraph, add paraProps
+		// NOTE: Only one "pPr" is allowed per paragraph and it must precede the runs, so its built from the 1st run's options
 		strSlideXml += '<a:p>'
-		// NOTE: `rtlMode` is like other opts, its propagated up to each text:options, so just check the 1st one
-		let paragraphPropXml = `<a:pPr ${line[0].options?.rtlMode ? ' rtl="1" ' : ''}`
+		// Inherit pPr-type options from parent shape's `options`
+		const paraOpts = line[0].options
+		paraOpts.align = paraOpts.align || opts.align
+		paraOpts.lineSpacing = paraOpts.lineSpacing || opts.lineSpacing
+		paraOpts.lineSpacingMultiple = paraOpts.lineSpacingMultiple || opts.lineSpacingMultiple
+		paraOpts.indentLevel = paraOpts.indentLevel || opts.indentLevel
+		paraOpts.paraSpaceBefore = paraOpts.paraSpaceBefore || opts.paraSpaceBefore
+		paraOpts.paraSpaceAfter = paraOpts.paraSpaceAfter || opts.paraSpaceAfter
+		strSlideXml += genXmlParagraphProperties(line[0], false).replace('<a:pPr></a:pPr>', '') // IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
 
-		// B: Start paragraph, loop over lines and add text runs
+		// B: Loop over lines and add text runs
 		line.forEach((textObj, idx) => {
 			// A: Set line index
 			textObj.options._lineIdx = idx
@@ -1275,16 +1283,6 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 				strSlideXml += '<a:br/>'
 			}
 
-			// B: Inherit pPr-type options from parent shape's `options`
-			textObj.options.align = textObj.options.align || opts.align
-			textObj.options.lineSpacing = textObj.options.lineSpacing || opts.lineSpacing
-			textObj.options.lineSpacingMultiple = textObj.options.lineSpacingMultiple || opts.lineSpacingMultiple
-			textObj.options.indentLevel = textObj.options.indentLevel || opts.indentLevel
-			textObj.options.paraSpaceBefore = textObj.options.paraSpaceBefore || opts.paraSpaceBefore
-			textObj.options.paraSpaceAfter = textObj.options.paraSpaceAfter || opts.paraSpaceAfter
-			paragraphPropXml = genXmlParagraphProperties(textObj, false)
-
-			strSlideXml += paragraphPropXml.replace('<a:pPr></a:pPr>', '') // IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
 			// C: Inherit any main options (color, fontSize, etc.)
 			// NOTE: We only pass the text.options to genXmlTextRun (not the Slide.options),
 			// so the run building function cant just fallback to Slide.color, therefore, we need to do that here before passing options below.
